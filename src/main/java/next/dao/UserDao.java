@@ -39,9 +39,26 @@ public class UserDao {
         // TODO 구현 필요함.
     }
 
+
+
+    /*
+    * sql문을 작성한다.
+    * */
     public List<User> findAll() throws SQLException {
         // TODO 구현 필요함.
-        return new ArrayList<User>();
+        final ArrayList<User> users = new ArrayList<>();
+
+        String sql = "SELECT userId, password, name, email FROM USERS";
+        try(Connection con = ConnectionManager.getConnection();
+        PreparedStatement pstmt = con.prepareStatement(sql);
+            ResultSet rs = pstmt.executeQuery()){
+
+            User user = new User(rs.getString("userId"), rs.getString("password"), rs.getString("name"),
+                    rs.getString("email"));
+            users.add(user);
+        }
+
+        return users;
     }
 
     public User findByUserId(String userId) throws SQLException {
