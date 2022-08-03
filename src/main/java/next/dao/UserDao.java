@@ -4,109 +4,87 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
-import core.jdbc.ConnectionManager;
 import next.dao.template.JdbcTemplate;
 import next.model.User;
 
 public class UserDao {
 
-    public void insert(User user) throws SQLException {
-        JdbcTemplate jdbcTemplate = new JdbcTemplate() {
-            @Override
-            public String createQuery() {
-                return "INSERT INTO USERS VALUES (?,?,?,?)";
-            }
+    public void insert(User user){
 
-            @Override
-            public void setValues(PreparedStatement pstmt) throws SQLException {
-                pstmt.setString(1, user.getUserId());
-                pstmt.setString(2, user.getPassword());
-                pstmt.setString(3, user.getName());
-                pstmt.setString(4, user.getEmail());
-            }
-        };
+        String sql = "INSERT INTO USERS VALUES (?,?,?,?)";
 
-        jdbcTemplate.update();
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(pstmt -> {
+            pstmt.setString(1, user.getUserId());
+            pstmt.setString(2, user.getPassword());
+            pstmt.setString(3, user.getName());
+            pstmt.setString(4, user.getEmail());
+        });
+
+
+        jdbcTemplate.update(sql);
     }
 
-    public void update(User user) throws SQLException {
-        JdbcTemplate jdbcTemplate = new JdbcTemplate() {
-            @Override
-            public String createQuery() {
-                return "UPDATE USERS SET name=?, password=?, email=? WHERE userId=?";
-            }
+    public void update(User user){
 
-            @Override
-            public void setValues(PreparedStatement pstmt) throws SQLException{
-                pstmt.setString(1, user.getName());
-                pstmt.setString(2, user.getPassword());
-                pstmt.setString(3, user.getEmail());
-                pstmt.setString(4, user.getUserId());
-            }
-        };
+        String sql = "UPDATE USERS SET name=?, password=?, email=? WHERE userId=?";
 
-        jdbcTemplate.update();
+        JdbcTemplate jdbcTemplate = new JdbcTemplate((pstmt)->{
+            pstmt.setString(1, user.getName());
+            pstmt.setString(2, user.getPassword());
+            pstmt.setString(3, user.getEmail());
+            pstmt.setString(4, user.getUserId());
+
+        });
+
+        jdbcTemplate.update(sql);
     }
 
 
-
-    /*
-    * 1,sql문을 작성한다.
-    * 2, ConnectionManager을 통해 연결하고, SQL문을 입력해 결과를 rs에 받는다.
-    * 3, rs에 있는 데이터들로 User객체를 만들어 ArrayList에 만들어 반환한다.
-    * */
     public List<User> findAll() throws SQLException {
-        // TODO 구현 필요함.
-        final ArrayList<User> users = new ArrayList<>();
+
+        ArrayList<User> users = new ArrayList<>();
 
         String sql = "SELECT userId, password, name, email FROM USERS";
-        try(Connection con = ConnectionManager.getConnection();
-        PreparedStatement pstmt = con.prepareStatement(sql);
-            ResultSet rs = pstmt.executeQuery()){
 
-            while(rs.next()){
-                User user = new User(rs.getString("userId"),
-                        rs.getString("password"),
-                        rs.getString("name"),
-                        rs.getString("email"));
-                users.add(user);
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(new JdbcTemplate.RowMapper() {
+            @Override
+            public Object mapRow(ResultSet resultSet) throws SQLException {
+                User user = new User(resultSet.getString("userId"),
+                        resultSet.getString("password"),
+                        resultSet.getString("name"),
+                        resultSet.getString("email"));
+                return user;
             }
-        }
+        });
 
+        jdbcTemplate.select(sql).forEach(x->users.add((User)x));
         return users;
     }
 
     public User findByUserId(String userId) throws SQLException {
-        Connection con = null;
-        PreparedStatement pstmt = null;
-        ResultSet rs = null;
-        try {
-            con = ConnectionManager.getConnection();
-            String sql = "SELECT userId, password, name, email FROM USERS WHERE userid=?";
-            pstmt = con.prepareStatement(sql);
-            pstmt.setString(1, userId);
+        String sql = "SELECT userId, password, name, email FROM USERS WHERE userid=?";
 
-            rs = pstmt.executeQuery();
+        final JdbcTemplate jdbcTemplate = new JdbcTemplate(
+                new JdbcTemplate.PreParedStatementSetter() {
+                    @Override
+                    public void setValues(PreparedStatement pstmt) throws SQLException {
+                        pstmt.setString(1, userId);
+                    }
+                },
+                new JdbcTemplate.RowMapper() {
+                    @Override
+                    public Object mapRow(ResultSet resultSet) throws SQLException {
+                        return new User(resultSet.getString("userId"),
+                                resultSet.getString("password"),
+                                resultSet.getString("name"),
+                                resultSet.getString("email"));
+                    }
+                });
 
-            User user = null;
-            if (rs.next()) {
-                user = new User(rs.getString("userId"), rs.getString("password"), rs.getString("name"),
-                        rs.getString("email"));
-            }
-
-            return user;
-        } finally {
-            if (rs != null) {
-                rs.close();
-            }
-            if (pstmt != null) {
-                pstmt.close();
-            }
-            if (con != null) {
-                con.close();
-            }
-        }
+        User user = (User) jdbcTemplate.selectForObject(sql);
+        return user;
     }
-
-
 }
+
+
+
